@@ -29,13 +29,13 @@ export class OrdersService {
    * Submit a single order
    */
   static async submitOrder(order: OrderDraft): Promise<void> {
-    if (!order.hour || !order.price || !order.quantity) {
+    if (!order.hour || !order.price || !order.quantity || !order.side) {
       throw new Error('Invalid order: missing required fields')
     }
 
     try {
       const response = await fetch(
-        `${this.BASE_URL}/bids?hour=${order.hour}&price=${order.price}&quantity=${order.quantity}`,
+        `${this.BASE_URL}/bids?hour=${order.hour}&price=${order.price}&quantity=${order.quantity}&side=${order.side}`,
         { method: 'POST' }
       )
       

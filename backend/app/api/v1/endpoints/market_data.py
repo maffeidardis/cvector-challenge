@@ -106,10 +106,11 @@ async def place_bid(
     hour: int = Query(..., ge=0, le=23, description="Hour slot (0-23)"),
     price: float = Query(..., gt=0, description="Bid price in USD/MWh"),
     quantity: float = Query(..., gt=0, description="Quantity in MWh"),
+    side: str = Query(..., regex="^(BUY|SELL)$", description="Order side: BUY or SELL"),
     user_id: str = Query("demo_user", description="User ID")
 ) -> dict:
     """Place a bid for a specific hour slot."""
-    return trading_simulation.place_bid(hour=hour, price=price, quantity=quantity, user_id=user_id)
+    return trading_simulation.place_bid(hour=hour, price=price, quantity=quantity, side=side, user_id=user_id)
 
 
 @router.get("/bids")

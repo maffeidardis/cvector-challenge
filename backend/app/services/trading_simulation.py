@@ -16,11 +16,12 @@ _trades: Dict[str, Dict] = {}
 class Bid:
     """Simple bid representation."""
     
-    def __init__(self, hour: int, price: float, quantity: float, user_id: str = "demo_user"):
+    def __init__(self, hour: int, price: float, quantity: float, side: str = "BUY", user_id: str = "demo_user"):
         self.id = str(uuid.uuid4())
         self.hour = hour  # 0-23
         self.price = price  # USD/MWh
         self.quantity = quantity  # MWh
+        self.side = side  # BUY or SELL
         self.user_id = user_id
         self.timestamp = datetime.utcnow()
         self.status = "PENDING"  # PENDING, EXECUTED, REJECTED
@@ -103,7 +104,7 @@ class TradingSimulationService:
                 "reference_date": reference_date.strftime("%Y-%m-%d")
             }
     
-    def place_bid(self, hour: int, price: float, quantity: float, user_id: str = "demo_user") -> Dict:
+    def place_bid(self, hour: int, price: float, quantity: float, side: str = "BUY", user_id: str = "demo_user") -> Dict:
         """Place a bid for a specific hour."""
         
         if not 0 <= hour <= 23:
@@ -112,12 +113,16 @@ class TradingSimulationService:
         if price <= 0 or quantity <= 0:
             return {"status": "error", "message": "Price and quantity must be positive"}
         
-        bid = Bid(hour=hour, price=price, quantity=quantity, user_id=user_id)
+        if side not in ["BUY", "SELL"]:
+            return {"status": "error", "message": "Side must be BUY or SELL"}
+        
+        bid = Bid(hour=hour, price=price, quantity=quantity, side=side, user_id=user_id)
         _bids[bid.id] = {
             "id": bid.id,
             "hour": bid.hour,
             "price": bid.price,
             "quantity": bid.quantity,
+            "side": bid.side,
             "user_id": bid.user_id,
             "timestamp": bid.timestamp.isoformat(),
             "status": bid.status,
@@ -165,9 +170,20 @@ class TradingSimulationService:
         # Store clearing price in bid record
         _bids[bid_id]["clearing_price"] = clearing_price
         
-        # Execute if bid price >= clearing price
-        print(f"DEBUG: Comparing bid price {bid_data['price']} >= clearing price {clearing_price}")
-        if bid_data["price"] >= clearing_price:
+        # Execute based on BUY vs SELL logic
+        side = bid_data.get("side", "BUY")  # Default to BUY for backward compatibility
+        should_execute = False
+        
+        if side == "BUY":
+            # BUY: Execute if willing to pay >= clearing price
+            should_execute = bid_data["price"] >= clearing_price
+            print(f"DEBUG: BUY order - bid price {bid_data['price']} >= clearing price {clearing_price}: {should_execute}")
+        elif side == "SELL":
+            # SELL: Execute if willing to accept <= clearing price (market pays more than ask)
+            should_execute = bid_data["price"] <= clearing_price
+            print(f"DEBUG: SELL order - bid price {bid_data['price']} <= clearing price {clearing_price}: {should_execute}")
+        
+        if should_execute:
             # Create trade
             trade = Trade(
                 bid_id=bid_id,
@@ -216,6 +232,14 @@ class TradingSimulationService:
         
         trade_data = _trades[trade_id]
         
+        # Get the original bid to determine side (BUY/SELL)
+        bid_id = trade_data["bid_id"]
+        if bid_id not in _bids:
+            return {"status": "error", "message": "Original bid not found"}
+        
+        bid_data = _bids[bid_id]
+        side = bid_data.get("side", "BUY")  # Default to BUY for backward compatibility
+        
         if not self._real_time_cache:
             return {"status": "error", "message": "No real-time data available"}
         
@@ -234,15 +258,24 @@ class TradingSimulationService:
         # Calculate average real-time price for the hour
         avg_real_time_price = sum(real_time_prices) / len(real_time_prices)
         
-        # Calculate P&L
+        # Calculate P&L based on BUY vs SELL
         day_ahead_price = trade_data["executed_price"]
         quantity = trade_data["quantity"]
         
-        pnl = (avg_real_time_price - day_ahead_price) * quantity
+        if side == "BUY":
+            # BUY: Profit when real-time > day-ahead (bought cheap, market went up)
+            pnl = (avg_real_time_price - day_ahead_price) * quantity
+        elif side == "SELL":
+            # SELL: Profit when day-ahead > real-time (sold high, market went down)
+            pnl = (day_ahead_price - avg_real_time_price) * quantity
+        else:
+            # Default to BUY logic for unknown sides
+            pnl = (avg_real_time_price - day_ahead_price) * quantity
         
         return {
             "status": "success",
             "trade_id": trade_id,
+            "side": side,
             "day_ahead_price": day_ahead_price,
             "real_time_avg_price": avg_real_time_price,
             "quantity": quantity,
