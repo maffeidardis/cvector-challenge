@@ -97,7 +97,10 @@ export class MarketService {
   /**
    * Convert raw market data to MarketData objects
    */
-  static convertToMarketData(rawData: any): MarketData[] {
+  static convertToMarketData(rawData: {
+    day_ahead?: { price: number; timestamp: string }
+    real_time?: { price: number; timestamp: string }
+  }): MarketData[] {
     const items: MarketData[] = []
     
     if (rawData?.day_ahead?.price) {
