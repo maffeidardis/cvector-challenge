@@ -23,7 +23,7 @@ export const PnLCard: React.FC<PnLCardProps> = ({
       loading={isLoading}
     >
       <div className="p-3 sm:p-4">
-        <h3 className="text-xs sm:text-sm font-bold text-[#66002D] mb-1 sm:mb-2">
+        <h3 className="text-xs sm:text-sm font-bold text-black mb-1 sm:mb-2">
           Total P&L
         </h3>
         <div 
@@ -32,7 +32,7 @@ export const PnLCard: React.FC<PnLCardProps> = ({
         >
           {totalPnl >= 0 ? '+' : ''}${totalPnl.toFixed(2)}
         </div>
-        <div className="text-xs text-[#66002D] mt-1 font-medium">
+        <div className="text-xs text-black mt-1 font-medium">
           unrealized
         </div>
       </div>

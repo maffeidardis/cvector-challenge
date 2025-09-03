@@ -41,32 +41,6 @@ export function useMarketData() {
   }, [])
 
   /**
-   * Initialize market simulation
-   */
-  const initializeSimulation = useCallback(async (): Promise<boolean> => {
-    try {
-      setIsLoading(true)
-      setError(null)
-      
-      await MarketService.initializeSimulation()
-      
-      // Fetch initial data after initialization
-      await Promise.all([
-        fetchMarketSummary(),
-        fetchTimeseries()
-      ])
-      
-      return true
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize simulation'
-      setError(errorMessage)
-      return false
-    } finally {
-      setIsLoading(false)
-    }
-  }, [])
-
-  /**
    * Fetch market summary
    */
   const fetchMarketSummary = useCallback(async () => {
@@ -100,6 +74,32 @@ export function useMarketData() {
       throw err
     }
   }, [])
+
+  /**
+   * Initialize market simulation
+   */
+  const initializeSimulation = useCallback(async (): Promise<boolean> => {
+    try {
+      setIsLoading(true)
+      setError(null)
+      
+      await MarketService.initializeSimulation()
+      
+      // Fetch initial data after initialization
+      await Promise.all([
+        fetchMarketSummary(),
+        fetchTimeseries()
+      ])
+      
+      return true
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to initialize simulation'
+      setError(errorMessage)
+      return false
+    } finally {
+      setIsLoading(false)
+    }
+  }, [fetchMarketSummary, fetchTimeseries])
 
   /**
    * Refresh all market data

@@ -53,7 +53,7 @@ const MarketChart: React.FC<PriceChartProps> = ({
   const priceChange = currentPrice - previousPrice
   const priceChangePercent = previousPrice !== 0 ? (priceChange / previousPrice) * 100 : 0
 
-  const CustomTooltip = ({ active, payload }: any) => {
+  const CustomTooltip = ({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartDataPoint }> }) => {
     if (active && payload && payload.length) {
       const data = payload[0].payload
       return (
