@@ -116,7 +116,7 @@ export function useMarketData() {
   }, [fetchMarketSummary, fetchTimeseries])
 
   /**
-   * Initialize on mount
+   * Initialize on mount (only once)
    */
   useEffect(() => {
     const initialize = async () => {
@@ -138,7 +138,7 @@ export function useMarketData() {
     }
     
     initialize()
-  }, [checkStatus, fetchMarketSummary, fetchTimeseries])
+  }, []) // Empty dependency array - run only once on mount
 
   return {
     marketData,

@@ -109,7 +109,7 @@ const TradingDashboard: React.FC = () => {
     ])
   }, [refreshMarketData, fetchOrders, fetchPnLData])
 
-  // Auto-initialize simulation on component mount
+  // Auto-initialize simulation on component mount (only once)
   useEffect(() => {
     const initializeOnMount = async () => {
       if (!isInitialized && !isLoading) {
@@ -118,7 +118,7 @@ const TradingDashboard: React.FC = () => {
     }
     
     initializeOnMount()
-  }, [isInitialized, isLoading, handleInitialize])
+  }, []) // Empty dependency array - run only once on mount
 
   // Auto-refresh every 30 seconds when initialized
   useEffect(() => {
