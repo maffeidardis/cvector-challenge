@@ -48,8 +48,8 @@ class TradingSimulationService:
         self._cache_date: Optional[datetime] = None
     
     def get_reference_date(self) -> datetime:
-        """Get the reference date (D-1) for simulation."""
-        # Always return yesterday (D-1) - current UTC date minus 1 day
+        """Get the reference date (D-2) for simulation testing."""
+        # D-1 strategy: always use yesterday's data for simulation
         return datetime.utcnow() - timedelta(days=1)
     
     async def initialize_market_data(self) -> Dict:
@@ -72,15 +72,13 @@ class TradingSimulationService:
             # Fetch day-ahead data (24 hourly points)
             self._day_ahead_cache = await self.gridstatus_service.fetch_day_ahead_lmp_data(
                 market="PJM", 
-                reference_date=reference_date,
-                limit=50  # Increased to ensure we get 24 hours
+                reference_date=reference_date
             )
             
-            # Fetch real-time data (288 5-minute points, but limit to 300 to get full day coverage)
+            # Fetch real-time data (need ~288 5-minute points for full day, requesting more for safety)
             self._real_time_cache = await self.gridstatus_service.fetch_realtime_lmp_data(
                 market="PJM", 
-                reference_date=reference_date,
-                limit=300  # Increased to get full day + some next day coverage
+                reference_date=reference_date
             )
             
             # Debug: Check the time range of real-time data
@@ -143,7 +141,7 @@ class TradingSimulationService:
         
         bid_data = _bids[bid_id]
         
-        # Check if it's time to execute (current UTC hour >= bid hour)
+        # Check if it's time to execute (current UTC hour >= bid hour for D-1 simulation)
         current_hour = datetime.utcnow().hour
         print(f"DEBUG: Current UTC hour: {current_hour}, Bid hour: {bid_data['hour']}")
         if current_hour < bid_data["hour"]:
@@ -350,17 +348,26 @@ class TradingSimulationService:
         ]
 
         # Real-time: only show data up to current time to simulate progression
+        # Since we're using D-1 data, we need to show progression as if D-1 data is "today"
+        
         real_time_series = []
         for md in self._real_time_cache:
+            # Get the time components from the D-1 data
             data_hour = md.timestamp.hour
             data_minute = md.timestamp.minute
             
-            # Show data if it's from a past hour, or current hour up to current minute
-            if (data_hour < current_hour) or (data_hour == current_hour and data_minute <= current_minute):
+            # Calculate total minutes since start of day for both data and current time
+            data_minutes_since_start = data_hour * 60 + data_minute
+            current_minutes_since_start = current_hour * 60 + current_minute
+            
+            # Show data if D-1 time point <= current time (simulating progression)
+            if data_minutes_since_start <= current_minutes_since_start:
                 real_time_series.append({
                     "timestamp": md.timestamp.isoformat(),
                     "price": float(md.price.value),
                 })
+            
+        print(f"DEBUG: Current time {current_hour:02d}:{current_minute:02d}, showing {len(real_time_series)} RT points out of {len(self._real_time_cache)} total")
 
         return {
             "reference_date": self.get_reference_date().strftime("%Y-%m-%d"),

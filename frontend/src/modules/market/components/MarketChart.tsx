@@ -5,8 +5,8 @@
 import React from 'react'
 import { Card, Spin, Alert, Tag } from '@arco-design/web-react'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
-import { formatPrice, formatTimestamp, formatTime } from '../../utils/formatters'
-import type { MarketType } from '../../types/trading.types'
+import { formatPrice, formatTimestamp, formatTime } from '../../../shared/utils/formatters'
+import type { MarketType } from '../types/market'
 
 interface PriceChartProps {
   market: MarketType
@@ -24,7 +24,7 @@ interface ChartDataPoint {
   loss?: number
 }
 
-const PriceChart: React.FC<PriceChartProps> = ({ 
+const MarketChart: React.FC<PriceChartProps> = ({ 
   market, 
   height = 400, 
   showTitle = true,
@@ -196,4 +196,4 @@ const PriceChart: React.FC<PriceChartProps> = ({
   )
 }
 
-export default PriceChart
+export default MarketChart
