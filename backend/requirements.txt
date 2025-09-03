@@ -1,0 +1,21 @@
+# FastAPI and ASGI
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Pydantic for data validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# HTTP client for external APIs (used by gridstatusio)
+httpx==0.25.2
+
+# GridStatus.io API client
+gridstatusio==0.11.0
+pandas==2.1.4
+
+# Environment management
+python-dotenv==1.0.0
+
+# Development dependencies (optional)
+black==23.11.0
+isort==5.12.0
