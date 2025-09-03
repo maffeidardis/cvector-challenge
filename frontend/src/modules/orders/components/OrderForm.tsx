@@ -5,6 +5,7 @@
 import React, { useState } from 'react'
 import { Modal, Button, Select, InputNumber, Message } from '@arco-design/web-react'
 import type { OrderDraft, OrderSide } from '../types/order'
+import cvectorLogo from '../../../assets/cvector-logo.png'
 
 interface OrderFormProps {
   visible: boolean
@@ -75,7 +76,7 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       title={
         <div style={{ textAlign: 'center' }}>
           <img 
-            src="/cvector-logo.png" 
+            src={cvectorLogo} 
             alt="CVector" 
             className="h-6"
             style={{ display: "block", margin: "auto" }}

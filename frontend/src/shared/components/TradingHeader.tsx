@@ -5,6 +5,7 @@
 import React from 'react'
 import { Button, Tag } from '@arco-design/web-react'
 import { IconClockCircle } from '@arco-design/web-react/icon'
+import cvectorLogo from '../../assets/cvector-logo.png'
 
 interface TradingHeaderProps {
   isInitialized: boolean
@@ -30,7 +31,7 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
           {/* Logo and Title Section */}
           <div className="flex items-center space-x-3 sm:space-x-4">
             <img 
-              src="/cvector-logo.png" 
+              src={cvectorLogo} 
               alt="CVector" 
               className="h-6 sm:h-8 w-auto flex-shrink-0"
             />
