@@ -67,7 +67,6 @@ class GridStatusService:
     async def fetch_realtime_lmp_data(
         self, 
         market: str = "PJM", 
-        limit: int = 288,  # 1 day of 5-minute data (24 * 60 / 5)
         reference_date: Optional[datetime] = None
     ) -> List[MarketData]:
         """Fetch real-time LMP data for a specific date (D-1 strategy)."""
@@ -80,15 +79,14 @@ class GridStatusService:
         if reference_date is None:
             reference_date = datetime.utcnow() - timedelta(days=1)
         
-        # Format dates for API call - extend into next day for simulation progression
+        # Format dates for API call - try single day first to test data availability
         start_date = reference_date.strftime("%Y-%m-%d") + "T00:00:00Z"
-        next_day = reference_date + timedelta(days=1)
-        end_date = next_day.strftime("%Y-%m-%d") + "T06:00:00Z"  # Get 6 hours into next day
+        end_date = reference_date.strftime("%Y-%m-%d") + "T23:59:59Z"  # Full single day only
         
         try:
             # Focus on PJM only - use PJM Western Hub as single region
             dataset_name = "pjm_lmp_real_time_5_min"
-            logger.info(f"Fetching PJM real-time LMP data for {reference_date.strftime('%Y-%m-%d')} (limit: {limit})")
+            logger.info(f"Fetching PJM real-time LMP data for {reference_date.strftime('%Y-%m-%d')} (no limit)")
             
             # Run in thread pool since gridstatusio is synchronous
             loop = asyncio.get_event_loop()
@@ -98,31 +96,44 @@ class GridStatusService:
                     dataset_name,
                     start=start_date,
                     end=end_date,
-                    limit=limit,
                     filter_column="location_type",
-                    filter_value="HUB"
+                    filter_value="HUB"  # Get all hubs, we'll filter to one afterward
                 )
             )
 
-            print(df)
-            
+            print(df)            
             # Filter for single location to avoid duplicates
             if not df.empty and 'location' in df.columns:
-                # Take only the first location to ensure we get clean time series data
-                first_location = df['location'].iloc[0]
-                df = df[df['location'] == first_location]
-                logger.info(f"Using PJM real-time location: {first_location} with {len(df)} records")
+                # Prefer WESTERN HUB, or fall back to first available hub
+                available_hubs = df['location'].unique()
+                preferred_hubs = ['WESTERN HUB', 'EASTERN HUB', 'NEW JERSEY HUB', 'AEP GEN HUB']
                 
-                # Debug: Check if we still have duplicates after location filtering
-                if len(df) > 0:
-                    print(f"After location filtering - First 5 timestamps:")
-                    print(df['interval_start_utc'].head().tolist())
-                    print(f"Last 5 timestamps:")
-                    print(df['interval_start_utc'].tail().tolist())
-                    
-                    # Check for duplicate timestamps
-                    duplicates = df['interval_start_utc'].duplicated().sum()
-                    print(f"Duplicate timestamps after location filter: {duplicates}")
+                selected_hub = None
+                for hub in preferred_hubs:
+                    if hub in available_hubs:
+                        selected_hub = hub
+                        break
+                
+                if selected_hub is None:
+                    selected_hub = available_hubs[0]
+                
+                df = df[df['location'] == selected_hub]
+                logger.info(f"Using PJM real-time location: {selected_hub} with {len(df)} records")
+                print(f"Available hubs: {list(available_hubs)}")
+                print(f"Selected hub: {selected_hub}")
+                
+                            # Debug: Check if we still have duplicates after location filtering
+            if len(df) > 0:
+                print(f"After location filtering - First 5 timestamps:")
+                print(df['interval_start_utc'].head().tolist())
+                print(f"Last 5 timestamps:")
+                print(df['interval_start_utc'].tail().tolist())
+                
+                # Check for duplicate timestamps
+                duplicates = df['interval_start_utc'].duplicated().sum()
+                print(f"Duplicate timestamps after location filter: {duplicates}")
+                print(f"API Query: start={start_date}, end={end_date}")
+                print(f"Total rows returned: {len(df)}")
             
             return self._convert_lmp_dataframe_to_market_data(df, MarketType.REAL_TIME)
             
@@ -133,8 +144,7 @@ class GridStatusService:
     async def fetch_day_ahead_lmp_data(
         self, 
         market: str = "PJM", 
-        reference_date: Optional[datetime] = None,
-        limit: int = 24  # 1 day of hourly data
+        reference_date: Optional[datetime] = None
     ) -> List[MarketData]:
         """Fetch day-ahead LMP data for a specific date (D-1 strategy)."""
         
@@ -152,7 +162,7 @@ class GridStatusService:
         try:
             # Focus on PJM day-ahead data only
             dataset_name = "pjm_lmp_day_ahead_hourly"
-            logger.info(f"Fetching PJM day-ahead LMP data for {date_str} (limit: {limit})")
+            logger.info(f"Fetching PJM day-ahead LMP data for {date_str} (no limit)")
             
             loop = asyncio.get_event_loop()
             df = await loop.run_in_executor(
@@ -161,18 +171,30 @@ class GridStatusService:
                     dataset_name,
                     start=f"{date_str}T00:00:00Z",
                     end=f"{date_str}T23:59:59Z",
-                    limit=limit,
                     filter_column="location_type",
-                    filter_value="HUB"
+                    filter_value="HUB"  # Get all hubs, we'll filter to one afterward
                 )
             )
             
             # Filter for single location to avoid duplicates
             if not df.empty and 'location' in df.columns:
-                # Take only the first location to ensure we get clean hourly data
-                first_location = df['location'].iloc[0]
-                df = df[df['location'] == first_location]
-                logger.info(f"Using PJM day-ahead location: {first_location} with {len(df)} records")
+                # Prefer WESTERN HUB, or fall back to first available hub
+                available_hubs = df['location'].unique()
+                preferred_hubs = ['WESTERN HUB', 'EASTERN HUB', 'NEW JERSEY HUB', 'AEP GEN HUB']
+                
+                selected_hub = None
+                for hub in preferred_hubs:
+                    if hub in available_hubs:
+                        selected_hub = hub
+                        break
+                
+                if selected_hub is None:
+                    selected_hub = available_hubs[0]
+                
+                df = df[df['location'] == selected_hub]
+                logger.info(f"Using PJM day-ahead location: {selected_hub} with {len(df)} records")
+                print(f"Available hubs: {list(available_hubs)}")
+                print(f"Selected hub: {selected_hub}")
             
             return self._convert_lmp_dataframe_to_market_data(df, MarketType.DAY_AHEAD)
             
