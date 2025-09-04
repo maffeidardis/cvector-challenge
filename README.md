@@ -1,6 +1,6 @@
 # Virtual Energy Trading Platform
 
-A virtual energy trading platform that simulates day-ahead energy markets using real PJM (Pennsylvania, Jersey, Maryland) market data. The platform implements a complete trading workflow from bidding to settlement with real-time P&L calculations.
+A virtual energy trading platform that simulates day-ahead energy markets using real PJM (Pennsylvania, Jersey, Maryland) market data. The platform implements a complete trading workflow from bidding to settlement with P&L calculations.
 
 ## Architecture Overview
 
