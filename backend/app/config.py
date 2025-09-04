@@ -27,7 +27,7 @@ class Settings(BaseSettings):
     primary_market: str = os.getenv("PRIMARY_MARKET", "PJM")  # Focus on PJM only
     
     # CORS - Use string type to avoid Pydantic JSON parsing
-    cors_origins: str = "http://localhost:5173,http://localhost:3000"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000, https://cvector.torportech.ai"
     
     class Config:
         env_file = ".env"
