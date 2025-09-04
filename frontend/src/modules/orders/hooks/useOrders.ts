@@ -37,7 +37,8 @@ export function useOrders() {
       setIsLoading(true)
       setError(null)
       
-      //const successCount = await OrdersService.submitOrders(orderDrafts)
+      const successCount = await OrdersService.submitOrders(orderDrafts)
+      console.log(`Successfully submitted ${successCount} orders`)
       
       // Refresh orders after submission
       await fetchOrders()
