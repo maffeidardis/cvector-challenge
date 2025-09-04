@@ -66,14 +66,14 @@ class TradingSimulationService:
     
     def get_reference_date(self) -> datetime:
         """Get reference date for data fetches based on phase.
-        - BIDDING (D-1): use September 2, 2024 for charts
-        - TRADING (D0): use September 3, 2024 for DA/RT data
+        - BIDDING (D-1): use September 2, 2025 for charts
+        - TRADING (D0): use September 3, 2025 for DA/RT data
         """
         if self.phase == "TRADING":
-            # D0 = September 3, 2024
-            return datetime(2024, 9, 3, tzinfo=timezone.utc)
-        # BIDDING: D-1 = September 2, 2024 
-        return datetime(2024, 9, 2, tzinfo=timezone.utc)
+            # D0 = September 3, 2025
+            return datetime(2025, 9, 3, tzinfo=timezone.utc)
+        # BIDDING: D-1 = September 2, 2025 
+        return datetime(2025, 9, 2, tzinfo=timezone.utc)
 
     def get_now(self) -> datetime:
         """Get current UTC time or simulated override."""
@@ -93,11 +93,11 @@ class TradingSimulationService:
         
         # Use correct simulation date based on phase
         if self.phase == "BIDDING":
-            # D-1 = September 2, 2024
-            new_sim = datetime(2024, 9, 2, hour, minute, 0, 0, tzinfo=timezone.utc)
+            # D-1 = September 2, 2025
+            new_sim = datetime(2025, 9, 2, hour, minute, 0, 0, tzinfo=timezone.utc)
         else:
-            # D0 = September 3, 2024
-            new_sim = datetime(2024, 9, 3, hour, minute, 0, 0, tzinfo=timezone.utc)
+            # D0 = September 3, 2025
+            new_sim = datetime(2025, 9, 3, hour, minute, 0, 0, tzinfo=timezone.utc)
             
         self._sim_now = new_sim
         self._sim_anchor_sim = new_sim
@@ -125,8 +125,8 @@ class TradingSimulationService:
         
         try:
             # Fetch BOTH D-1 and D0 data upfront to avoid async issues later
-            d1_date = datetime(2024, 9, 2, tzinfo=timezone.utc)  # D-1 = September 2
-            d0_date = datetime(2024, 9, 3, tzinfo=timezone.utc)  # D0 = September 3
+            d1_date = datetime(2025, 9, 2, tzinfo=timezone.utc)  # D-1 = September 2
+            d0_date = datetime(2025, 9, 3, tzinfo=timezone.utc)  # D0 = September 3
             
             print(f"DEBUG: Fetching D-1 data for {d1_date}")
             self._d1_day_ahead_cache = await self.gridstatus_service.fetch_day_ahead_lmp_data(
@@ -155,9 +155,9 @@ class TradingSimulationService:
             self._cache_date = d1_date  # Use D-1 date as cache reference
             print(f"DEBUG: Both D-1 and D0 data cached successfully")
             
-            # Default simulated time: 10:00 on September 2, 2024 (D-1) for UX
+            # Default simulated time: 10:00 on September 2, 2025 (D-1) for UX
             if self.phase == "BIDDING" and self._sim_now is None:
-                self._sim_now = datetime(2024, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
+                self._sim_now = datetime(2025, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
                 self._sim_anchor_sim = self._sim_now
                 self._sim_anchor_utc = datetime.now(timezone.utc)
             
@@ -485,9 +485,9 @@ class TradingSimulationService:
         # Ensure a default simulated time exists (10:00 on appropriate simulation date)
         if self._sim_now is None:
             if self.phase == "BIDDING":
-                target = datetime(2024, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
+                target = datetime(2025, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
             else:
-                target = datetime(2024, 9, 3, 10, 0, 0, 0, tzinfo=timezone.utc)
+                target = datetime(2025, 9, 3, 10, 0, 0, 0, tzinfo=timezone.utc)
             self._sim_now = target
             self._sim_anchor_sim = target
             self._sim_anchor_utc = datetime.now(timezone.utc)
@@ -496,8 +496,8 @@ class TradingSimulationService:
         cutoff_dt = datetime(year=now.year, month=now.month, day=now.day, hour=11, minute=0, second=0, tzinfo=timezone.utc)
         seconds_to_cutoff = int((cutoff_dt - now).total_seconds()) if self.phase == "BIDDING" else 0
         # Fixed simulation dates
-        bidding_date = datetime(2024, 9, 2, tzinfo=timezone.utc)
-        delivery_date = datetime(2024, 9, 3, tzinfo=timezone.utc)
+        bidding_date = datetime(2025, 9, 2, tzinfo=timezone.utc)
+        delivery_date = datetime(2025, 9, 3, tzinfo=timezone.utc)
         return {
             "simulation_mode": True,
             "phase": self.phase,
@@ -520,7 +520,7 @@ class TradingSimulationService:
 
     def advance_to_trading_day(self) -> Dict:
         """Advance phase to TRADING (D0) and perform batch DAM clearing."""
-        # Switch phase to TRADING (D0 = September 3, 2024)
+        # Switch phase to TRADING (D0 = September 3, 2025)
         self.phase = "TRADING"
         
         # Find the latest hour from ALL bids (including PENDING ones about to be cleared) for better UX
@@ -536,7 +536,7 @@ class TradingSimulationService:
         print(f"DEBUG: Bid hours found: {bid_hours}, using latest: {latest_bid_hour}")
         
         # Set simulated time to the latest bid hour (or 10:00 if none)
-        self._sim_now = datetime(2024, 9, 3, latest_bid_hour, 0, 0, 0, tzinfo=timezone.utc)
+        self._sim_now = datetime(2025, 9, 3, latest_bid_hour, 0, 0, 0, tzinfo=timezone.utc)
         self._sim_anchor_sim = self._sim_now
         self._sim_anchor_utc = datetime.now(timezone.utc)
         print(f"DEBUG: Advanced to D0, set time to {self._sim_now} (latest bid hour: {latest_bid_hour} from {len(_bids)} bids)")
@@ -574,10 +574,10 @@ class TradingSimulationService:
 
     def back_to_bidding_day(self) -> Dict:
         """Go back to BIDDING phase (D-1) to place more orders."""
-        # Switch phase back to BIDDING (D-1 = September 2, 2024)
+        # Switch phase back to BIDDING (D-1 = September 2, 2025)
         self.phase = "BIDDING"
-        # Set simulated time to 10:00 on September 2, 2024 (D-1) by default
-        self._sim_now = datetime(2024, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
+        # Set simulated time to 10:00 on September 2, 2025 (D-1) by default
+        self._sim_now = datetime(2025, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
         self._sim_anchor_sim = self._sim_now
         self._sim_anchor_utc = datetime.now(timezone.utc)
         # D-1 data should already be cached from initialization
