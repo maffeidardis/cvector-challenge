@@ -200,7 +200,6 @@ const TradingDashboard: React.FC = () => {
         deliveryDate={deliveryDate}
         onAdvance={handleAdvanceToD0}
         onBackToD1={handleBackToD1}
-        onSetSimTime={(hour: number) => setSimulatedTime(hour)}
       />
 
       {!isInitialized ? (

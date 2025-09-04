@@ -23,7 +23,6 @@ interface TradingHeaderProps {
   deliveryDate?: string // D0 date (e.g., "2024-09-03")
   onAdvance?: () => Promise<void>
   onBackToD1?: () => Promise<void>
-  onSetSimTime?: (hour: number, minute?: number) => void
 }
 
 export const TradingHeader: React.FC<TradingHeaderProps> = ({
@@ -41,7 +40,6 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
   deliveryDate,
   onAdvance,
   onBackToD1,
-  onSetSimTime
 }) => {
   const [isAdvancing, setIsAdvancing] = React.useState(false)
   const [isGoingBack, setIsGoingBack] = React.useState(false)
