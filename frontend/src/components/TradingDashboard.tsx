@@ -46,7 +46,6 @@ const TradingDashboard: React.FC = () => {
     deliveryDate,
     advanceToD0,
     backToD1,
-    setSimulatedTime
   } = useMarketData()
   
   const {
