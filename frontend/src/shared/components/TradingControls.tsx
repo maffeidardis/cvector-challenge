@@ -8,9 +8,7 @@ import { IconClockCircle } from '@arco-design/web-react/icon'
 
 interface TradingControlsProps {
   isInitialized: boolean
-  isLoading: boolean
   currentUtcTime: string
-  onInitialize: () => void
   onPlaceOrders: () => void
   // Simulation additions
   phase?: 'BIDDING' | 'TRADING'
@@ -27,9 +25,7 @@ interface TradingControlsProps {
 
 export const TradingControls: React.FC<TradingControlsProps> = ({
   isInitialized,
-  isLoading,
   currentUtcTime,
-  onInitialize,
   onPlaceOrders,
   phase = 'BIDDING',
   canPlaceBids = true,
@@ -140,15 +136,9 @@ export const TradingControls: React.FC<TradingControlsProps> = ({
         )}
         
         {!isInitialized ? (
-          <Button 
-            type="primary" 
-            size="default"
-            onClick={onInitialize}
-            loading={isLoading}
-            long
-          >
-            Initialize Market
-          </Button>
+          <div className="text-center text-sm text-slate-500">
+            Loading market data...
+          </div>
         ) : (
           <>
             {phase === 'BIDDING' ? (

@@ -106,18 +106,34 @@ export function useMarketData() {
       
       await MarketService.initializeSimulation()
       
-      // Fetch initial data after initialization
-      await Promise.all([
-        fetchMarketSummary(),
-        fetchTimeseries()
+      // Fetch initial data after initialization directly
+      const [summary, timeseriesData] = await Promise.all([
+        MarketService.fetchMarketSummary(),
+        MarketService.fetchMarketTimeseries()
       ])
       
+      setMarketSummary(summary)
+      setTimeseries(timeseriesData)
+      
+      // Convert to MarketData format for backward compatibility
+      const marketDataItems = MarketService.convertToMarketData({
+        day_ahead: { price: summary.dayAheadPrice, timestamp: new Date().toISOString() },
+        real_time: { price: summary.realTimePrice, timestamp: new Date().toISOString() }
+      })
+      setMarketData(marketDataItems)
+      
       // Get updated status with simulated time
-      const statusResult = await checkStatus()
+      const status = await MarketService.getSimulationStatus()
+      setPhase(status.phase)
+      setCanPlaceBids(status.can_place_bids)
+      setSecondsToCutoff(status.seconds_to_cutoff)
+      setBiddingDate(status.bidding_date || '')
+      setDeliveryDate(status.delivery_date || '')
+      setMarketSummary(prev => ({ ...prev, isInitialized: status.data_initialized }))
       
       return {
         success: true,
-        simulatedTime: statusResult.simulatedTime
+        simulatedTime: status.simulated_time
       }
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to initialize simulation'
@@ -126,7 +142,7 @@ export function useMarketData() {
     } finally {
       setIsLoading(false)
     }
-  }, [fetchMarketSummary, fetchTimeseries, checkStatus])
+  }, []) // No dependencies - use MarketService directly
 
   /**
    * Advance to D0 and refresh everything
@@ -182,36 +198,91 @@ export function useMarketData() {
   }, [checkStatus, fetchTimeseries])
 
   /**
-   * Refresh all market data
+   * Refresh all market data - simplified to avoid dependency changes
    */
   const refreshMarketData = useCallback(async () => {
     try {
-      await Promise.all([
-        fetchMarketSummary(),
-        fetchTimeseries()
+      const [summary, timeseriesData] = await Promise.all([
+        MarketService.fetchMarketSummary(),
+        MarketService.fetchMarketTimeseries()
       ])
+      
+      setMarketSummary(summary)
+      setTimeseries(timeseriesData)
+      
+      // Convert to MarketData format for backward compatibility
+      const marketDataItems = MarketService.convertToMarketData({
+        day_ahead: { price: summary.dayAheadPrice, timestamp: new Date().toISOString() },
+        real_time: { price: summary.realTimePrice, timestamp: new Date().toISOString() }
+      })
+      setMarketData(marketDataItems)
     } catch (err) {
       console.error('Failed to refresh market data:', err)
     }
-  }, [fetchMarketSummary, fetchTimeseries])
+  }, []) // No dependencies - use MarketService directly
 
   /**
-   * Initialize on mount (only once)
+   * Auto-initialize on mount (only once)
    */
   useEffect(() => {
     const initialize = async () => {
       try {
         setIsLoading(true)
-        const statusResult = await checkStatus()
         
-        if (statusResult.isInitialized) {
-          await Promise.all([
-            fetchMarketSummary(),
-            fetchTimeseries()
+        // Check status first
+        setError(null)
+        const status = await MarketService.getSimulationStatus()
+        setPhase(status.phase)
+        setCanPlaceBids(status.can_place_bids)
+        setSecondsToCutoff(status.seconds_to_cutoff)
+        setBiddingDate(status.bidding_date || '')
+        setDeliveryDate(status.delivery_date || '')
+        setMarketSummary(prev => ({ ...prev, isInitialized: status.data_initialized }))
+        
+        if (status.data_initialized) {
+          // Already initialized, just fetch data
+          console.log('Market already initialized, fetching data...')
+          const [summary, timeseriesData] = await Promise.all([
+            MarketService.fetchMarketSummary(),
+            MarketService.fetchMarketTimeseries()
           ])
+          
+          setMarketSummary(summary)
+          setTimeseries(timeseriesData)
+          
+          // Convert to MarketData format for backward compatibility
+          const marketDataItems = MarketService.convertToMarketData({
+            day_ahead: { price: summary.dayAheadPrice, timestamp: new Date().toISOString() },
+            real_time: { price: summary.realTimePrice, timestamp: new Date().toISOString() }
+          })
+          setMarketData(marketDataItems)
+        } else {
+          // Not initialized, initialize automatically
+          console.log('Market not initialized, auto-initializing...')
+          await MarketService.initializeSimulation()
+          
+          // Fetch data after initialization
+          const [summary, timeseriesData] = await Promise.all([
+            MarketService.fetchMarketSummary(),
+            MarketService.fetchMarketTimeseries()
+          ])
+          
+          setMarketSummary(summary)
+          setTimeseries(timeseriesData)
+          
+          // Convert to MarketData format for backward compatibility
+          const marketDataItems = MarketService.convertToMarketData({
+            day_ahead: { price: summary.dayAheadPrice, timestamp: new Date().toISOString() },
+            real_time: { price: summary.realTimePrice, timestamp: new Date().toISOString() }
+          })
+          setMarketData(marketDataItems)
+          
+          console.log('Auto-initialization successful')
         }
       } catch (err) {
-        console.error('Failed to initialize market data:', err)
+        console.error('Failed to auto-initialize market data:', err)
+        const errorMessage = err instanceof Error ? err.message : 'Failed to initialize market data'
+        setError(errorMessage)
       } finally {
         setIsLoading(false)
       }

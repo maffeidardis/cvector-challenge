@@ -3,6 +3,7 @@
  */
 
 import type { BidOrder, OrderDraft } from '../types/order'
+import { UserSessionService } from '../../../shared/services/userSession'
 
 export class OrdersService {
   private static readonly BASE_URL = '/api/market-data'
@@ -12,7 +13,8 @@ export class OrdersService {
    */
   static async fetchBids(): Promise<BidOrder[]> {
     try {
-      const response = await fetch(`${this.BASE_URL}/bids`)
+      const userId = UserSessionService.getUserId()
+      const response = await fetch(`${this.BASE_URL}/bids?user_id=${encodeURIComponent(userId)}`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
@@ -34,8 +36,9 @@ export class OrdersService {
     }
 
     try {
+      const userId = UserSessionService.getUserId()
       const response = await fetch(
-        `${this.BASE_URL}/bids?hour=${order.hour}&price=${order.price}&quantity=${order.quantity}&side=${order.side}`,
+        `${this.BASE_URL}/bids?hour=${order.hour}&price=${order.price}&quantity=${order.quantity}&side=${order.side}&user_id=${encodeURIComponent(userId)}`,
         { method: 'POST' }
       )
       
