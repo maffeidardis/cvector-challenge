@@ -19,9 +19,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'http://localhost:8000',
+        target: 'https://cvector.torportech.ai',
         changeOrigin: true,
-        secure: false
+        secure: true
       }
     }
   }

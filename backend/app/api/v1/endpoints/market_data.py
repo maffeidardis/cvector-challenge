@@ -181,3 +181,10 @@ async def set_simulation_time(
     else:
         result = trading_simulation.set_simulated_time(hour=hour, minute=minute)
     return result
+
+
+@router.post("/reset")
+async def reset_order_book() -> dict:
+    """Clear all bids and trades from the order book."""
+    result = trading_simulation.reset_order_book()
+    return result

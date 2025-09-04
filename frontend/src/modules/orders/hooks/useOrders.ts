@@ -3,7 +3,6 @@
  */
 
 import { useState, useCallback } from 'react'
-import { Message } from '@arco-design/web-react'
 import type { BidOrder, OrderDraft, OrderSummary } from '../types/order'
 import { OrdersService } from '../services/ordersService'
 
@@ -39,7 +38,7 @@ export function useOrders() {
       setError(null)
       
       const successCount = await OrdersService.submitOrders(orderDrafts)
-      Message.success(`${successCount} order(s) submitted successfully`)
+      console.log(`Successfully submitted ${successCount} orders`)
       
       // Refresh orders after submission
       await fetchOrders()
@@ -47,7 +46,6 @@ export function useOrders() {
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit orders'
       setError(errorMessage)
-      Message.error(errorMessage)
       return false
     } finally {
       setIsLoading(false)
