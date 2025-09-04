@@ -19,9 +19,9 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://cvector-challenge-production.up.railway.app',
+        target: 'http://localhost:8000',
         changeOrigin: true,
-        secure: true
+        secure: false
       }
     }
   }

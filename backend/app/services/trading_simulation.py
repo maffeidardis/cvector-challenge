@@ -1,7 +1,7 @@
 """Trading simulation service using D-1 (yesterday) data strategy."""
 
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time, timezone
 from decimal import Decimal
 import uuid
 
@@ -44,57 +44,130 @@ class TradingSimulationService:
     
     def __init__(self):
         self.gridstatus_service = GridStatusService()
-        self._day_ahead_cache: Optional[List] = None
-        self._real_time_cache: Optional[List] = None
+        # Separate caches for D-1 and D0 data
+        self._d1_day_ahead_cache: Optional[List] = None  # D-1 (September 2) data
+        self._d1_real_time_cache: Optional[List] = None
+        self._d0_day_ahead_cache: Optional[List] = None  # D0 (September 3) data
+        self._d0_real_time_cache: Optional[List] = None
         self._cache_date: Optional[datetime] = None
+        # Simulation controls
+        self.phase: str = "BIDDING"  # BIDDING (D-1) | TRADING (D0)
+        self._sim_now: Optional[datetime] = None  # Current simulated time clock head
+        self._sim_anchor_utc: Optional[datetime] = None  # Real UTC when sim clock was set
+        self._sim_anchor_sim: Optional[datetime] = None  # Simulated time at anchor
+    
+    @property
+    def _day_ahead_cache(self):
+        """Get the appropriate day-ahead cache based on current phase."""
+        return self._d0_day_ahead_cache if self.phase == "TRADING" else self._d1_day_ahead_cache
+    
+    @property 
+    def _real_time_cache(self):
+        """Get the appropriate real-time cache based on current phase."""
+        return self._d0_real_time_cache if self.phase == "TRADING" else self._d1_real_time_cache
     
     def get_reference_date(self) -> datetime:
-        """Get the reference date (D-2) for simulation testing."""
-        # D-1 strategy: always use yesterday's data for simulation
-        return datetime.utcnow() - timedelta(days=1)
+        """Get reference date for data fetches based on phase.
+        - BIDDING (D-1): use September 2, 2024 for charts
+        - TRADING (D0): use September 3, 2024 for DA/RT data
+        """
+        if self.phase == "TRADING":
+            # D0 = September 3, 2024
+            return datetime(2024, 9, 3, tzinfo=timezone.utc)
+        # BIDDING: D-1 = September 2, 2024 
+        return datetime(2024, 9, 2, tzinfo=timezone.utc)
+
+    def get_now(self) -> datetime:
+        """Get current UTC time or simulated override."""
+        if self._sim_now is None:
+            return datetime.now(timezone.utc)
+        # If we have anchors, progress simulated time relative to real elapsed time
+        if self._sim_anchor_utc and self._sim_anchor_sim:
+            delta = datetime.now(timezone.utc) - self._sim_anchor_utc
+            return self._sim_anchor_sim + delta
+        return self._sim_now
+
+    def set_simulated_time(self, hour: int, minute: int = 0) -> Dict:
+        """Set simulated current UTC time (maintains correct simulation date)."""
+        # Clamp values
+        hour = max(0, min(23, int(hour)))
+        minute = max(0, min(59, int(minute)))
+        
+        # Use correct simulation date based on phase
+        if self.phase == "BIDDING":
+            # D-1 = September 2, 2024
+            new_sim = datetime(2024, 9, 2, hour, minute, 0, 0, tzinfo=timezone.utc)
+        else:
+            # D0 = September 3, 2024
+            new_sim = datetime(2024, 9, 3, hour, minute, 0, 0, tzinfo=timezone.utc)
+            
+        self._sim_now = new_sim
+        self._sim_anchor_sim = new_sim
+        self._sim_anchor_utc = datetime.now(timezone.utc)
+        return {
+            "status": "ok",
+            "simulated_time": new_sim.isoformat(),
+        }
     
     async def initialize_market_data(self) -> Dict:
         """Initialize market data for the reference date (D-1)."""
         reference_date = self.get_reference_date()
         
-        # Check if we already have cached data for this date
+        # Check if we already have cached D-1 data
         if (self._cache_date and 
             self._cache_date.date() == reference_date.date() and 
-            self._day_ahead_cache and 
-            self._real_time_cache):
+            self._d1_day_ahead_cache and 
+            self._d1_real_time_cache):
             return {
                 "status": "cached",
                 "reference_date": reference_date.strftime("%Y-%m-%d"),
-                "day_ahead_points": len(self._day_ahead_cache),
-                "real_time_points": len(self._real_time_cache)
+                "day_ahead_points": len(self._d1_day_ahead_cache),
+                "real_time_points": len(self._d1_real_time_cache)
             }
         
         try:
-            # Fetch day-ahead data (24 hourly points)
-            self._day_ahead_cache = await self.gridstatus_service.fetch_day_ahead_lmp_data(
-                market="PJM", 
-                reference_date=reference_date
+            # Fetch BOTH D-1 and D0 data upfront to avoid async issues later
+            d1_date = datetime(2024, 9, 2, tzinfo=timezone.utc)  # D-1 = September 2
+            d0_date = datetime(2024, 9, 3, tzinfo=timezone.utc)  # D0 = September 3
+            
+            print(f"DEBUG: Fetching D-1 data for {d1_date}")
+            self._d1_day_ahead_cache = await self.gridstatus_service.fetch_day_ahead_lmp_data(
+                market="PJM", reference_date=d1_date
             )
-            
-            # Fetch real-time data (need ~288 5-minute points for full day, requesting more for safety)
-            self._real_time_cache = await self.gridstatus_service.fetch_realtime_lmp_data(
-                market="PJM", 
-                reference_date=reference_date
+            self._d1_real_time_cache = await self.gridstatus_service.fetch_realtime_lmp_data(
+                market="PJM", reference_date=d1_date
             )
+            print(f"DEBUG: Fetched D-1 data: {len(self._d1_day_ahead_cache)} DA, {len(self._d1_real_time_cache)} RT")
             
-            # Debug: Check the time range of real-time data
-            if self._real_time_cache:
-                first_rt = self._real_time_cache[0].timestamp
-                last_rt = self._real_time_cache[-1].timestamp
-                print(f"DEBUG: Real-time data range: {first_rt} to {last_rt} ({len(self._real_time_cache)} points)")
+            print(f"DEBUG: Fetching D0 data for {d0_date}")
+            self._d0_day_ahead_cache = await self.gridstatus_service.fetch_day_ahead_lmp_data(
+                market="PJM", reference_date=d0_date
+            )
+            self._d0_real_time_cache = await self.gridstatus_service.fetch_realtime_lmp_data(
+                market="PJM", reference_date=d0_date
+            )
+            print(f"DEBUG: Fetched D0 data: {len(self._d0_day_ahead_cache)} DA, {len(self._d0_real_time_cache)} RT")
             
-            self._cache_date = reference_date
+            # Debug: Check the time range of D-1 real-time data
+            if self._d1_real_time_cache:
+                first_rt = self._d1_real_time_cache[0].timestamp
+                last_rt = self._d1_real_time_cache[-1].timestamp
+                print(f"DEBUG: D-1 real-time data range: {first_rt} to {last_rt} ({len(self._d1_real_time_cache)} points)")
+            
+            self._cache_date = d1_date  # Use D-1 date as cache reference
+            print(f"DEBUG: Both D-1 and D0 data cached successfully")
+            
+            # Default simulated time: 10:00 on September 2, 2024 (D-1) for UX
+            if self.phase == "BIDDING" and self._sim_now is None:
+                self._sim_now = datetime(2024, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
+                self._sim_anchor_sim = self._sim_now
+                self._sim_anchor_utc = datetime.now(timezone.utc)
             
             return {
                 "status": "initialized",
                 "reference_date": reference_date.strftime("%Y-%m-%d"),
-                "day_ahead_points": len(self._day_ahead_cache),
-                "real_time_points": len(self._real_time_cache)
+                "day_ahead_points": len(self._d1_day_ahead_cache),
+                "real_time_points": len(self._d1_real_time_cache)
             }
             
         except Exception as e:
@@ -106,6 +179,12 @@ class TradingSimulationService:
     
     def place_bid(self, hour: int, price: float, quantity: float, side: str = "BUY", user_id: str = "demo_user") -> Dict:
         """Place a bid for a specific hour."""
+        # Enforce phase and cutoff (11:00 UTC) during BIDDING
+        now = self.get_now()
+        if self.phase != "BIDDING":
+            return {"status": "error", "message": "Bids are closed. Current phase is TRADING (D0)."}
+        if now.hour >= 11:
+            return {"status": "error", "message": "Bidding cutoff passed (11:00 UTC)."}
         
         if not 0 <= hour <= 23:
             return {"status": "error", "message": "Hour must be between 0 and 23"}
@@ -125,20 +204,19 @@ class TradingSimulationService:
             "side": bid.side,
             "user_id": bid.user_id,
             "timestamp": bid.timestamp.isoformat(),
-            "status": bid.status,
-            "clearing_price": None  # Will be set when executed
+            "status": "PENDING",  # Always PENDING on D-1
+            "clearing_price": None  # Will be set when executed on D0
         }
         
-        # Immediately try to execute the bid using D-1 data
-        execution_result = self.execute_bid(bid.id)
+        print(f"DEBUG: Placed {side} bid for hour {hour} at ${price}/MWh - Status: PENDING (awaiting D0 clearing)")
         
         return {
             "status": "success",
             "bid_id": bid.id,
-            "execution": execution_result
+            "message": f"Bid placed for D0 hour {hour}:00. Status: PENDING until DAM clearing."
         }
     
-    def execute_bid(self, bid_id: str) -> Dict:
+    def execute_bid(self, bid_id: str, ignore_time: bool = False) -> Dict:
         """Execute a bid using D-1 day-ahead clearing prices."""
         
         if bid_id not in _bids:
@@ -146,11 +224,12 @@ class TradingSimulationService:
         
         bid_data = _bids[bid_id]
         
-        # Check if it's time to execute (current UTC hour >= bid hour for D-1 simulation)
-        current_hour = datetime.utcnow().hour
-        print(f"DEBUG: Current UTC hour: {current_hour}, Bid hour: {bid_data['hour']}")
-        if current_hour < bid_data["hour"]:
-            return {"status": "pending", "message": f"Waiting for hour {bid_data['hour']}. Current hour: {current_hour}"}
+        # Check if it's time to execute (current UTC hour >= bid hour) unless forced during advance
+        if not ignore_time:
+            current_hour = self.get_now().hour
+            print(f"DEBUG: Current UTC hour: {current_hour}, Bid hour: {bid_data['hour']}")
+            if current_hour < bid_data["hour"]:
+                return {"status": "pending", "message": f"Waiting for hour {bid_data['hour']}. Current hour: {current_hour}"}
         
         if not self._day_ahead_cache:
             return {"status": "error", "message": "No day-ahead data available"}
@@ -284,30 +363,15 @@ class TradingSimulationService:
         }
     
     def get_all_bids(self, user_id: str = "demo_user") -> List[Dict]:
-        """Get all bids for a user, checking for executions."""
-        # First, check and execute any pending bids that should be executed
-        self._check_and_execute_pending_bids()
-        
+        """Get all bids for a user."""
+        # On D-1: All bids should remain PENDING until user advances to D0
+        # On D0: Show the results of clearing that happened during advance
         return [bid for bid in _bids.values() if bid["user_id"] == user_id]
     
-    def _check_and_execute_pending_bids(self):
-        """Check and execute any pending bids whose time has come."""
-        current_hour = datetime.utcnow().hour
-        
-        for bid_id, bid_data in _bids.items():
-            if bid_data["status"] == "PENDING" and current_hour >= bid_data["hour"]:
-                execution_result = self.execute_bid(bid_id)
-                print(f"DEBUG: Execution result for bid {bid_id}: {execution_result}")
-                if execution_result.get("status") == "executed":
-                    _bids[bid_id]["status"] = "EXECUTED"
-                elif execution_result.get("status") == "rejected":
-                    _bids[bid_id]["status"] = "REJECTED"
     
     def get_all_trades(self, user_id: str = "demo_user") -> List[Dict]:
         """Get all trades for a user with P&L."""
-        # First, check and execute any pending bids that should be executed
-        self._check_and_execute_pending_bids()
-        
+        # Trades only exist after advancing to D0 and clearing happens
         user_bids = {bid["id"] for bid in _bids.values() if bid["user_id"] == user_id}
         trades = [trade for trade in _trades.values() if trade["bid_id"] in user_bids]
         
@@ -366,10 +430,12 @@ class TradingSimulationService:
             }
 
         # Get current UTC time for simulation (to match D-1 data timestamps)
-        current_utc = datetime.utcnow()
+        current_utc = self.get_now()
         current_hour = current_utc.hour
         current_minute = current_utc.minute
+        cache_date = self._cache_date.strftime("%Y-%m-%d") if self._cache_date else "unknown"
         print(f"DEBUG: Current UTC time: {current_utc}, filtering RT data up to {current_hour:02d}:{current_minute:02d}")
+        print(f"DEBUG: Cache date: {cache_date}, Phase: {self.phase}")
         
         # Day-ahead: show all 24 hours (this is known in advance)
         day_ahead_series = [
@@ -402,12 +468,125 @@ class TradingSimulationService:
             
         print(f"DEBUG: Current time {current_hour:02d}:{current_minute:02d}, showing {len(real_time_series)} RT points out of {len(self._real_time_cache)} total")
 
+        # Debug: Show first few timestamps to verify dates
+        if day_ahead_series:
+            print(f"DEBUG: First few DA timestamps: {[p['timestamp'][:10] for p in day_ahead_series[:3]]}")
+        if real_time_series:
+            print(f"DEBUG: First few RT timestamps: {[p['timestamp'][:10] for p in real_time_series[:3]]}")
+
         return {
             "reference_date": self.get_reference_date().strftime("%Y-%m-%d"),
             "day_ahead": day_ahead_series,
             "real_time": real_time_series,
             "simulation_mode": True,
             "current_simulation_time": f"{current_hour:02d}:{current_minute:02d}",
+        }
+
+    def get_simulation_status(self) -> Dict:
+        """Return enriched simulation status for frontend UX."""
+        # Ensure a default simulated time exists (10:00 on appropriate simulation date)
+        if self._sim_now is None:
+            if self.phase == "BIDDING":
+                target = datetime(2024, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
+            else:
+                target = datetime(2024, 9, 3, 10, 0, 0, 0, tzinfo=timezone.utc)
+            self._sim_now = target
+            self._sim_anchor_sim = target
+            self._sim_anchor_utc = datetime.now(timezone.utc)
+        now = self.get_now()
+        # Compute cutoff for 11:00 on the current simulation day
+        cutoff_dt = datetime(year=now.year, month=now.month, day=now.day, hour=11, minute=0, second=0, tzinfo=timezone.utc)
+        seconds_to_cutoff = int((cutoff_dt - now).total_seconds()) if self.phase == "BIDDING" else 0
+        # Fixed simulation dates
+        bidding_date = datetime(2024, 9, 2, tzinfo=timezone.utc)
+        delivery_date = datetime(2024, 9, 3, tzinfo=timezone.utc)
+        return {
+            "simulation_mode": True,
+            "phase": self.phase,
+            "bidding_date": bidding_date.strftime("%Y-%m-%d"),
+            "delivery_date": delivery_date.strftime("%Y-%m-%d"),
+            "cutoff_time_utc": "11:00",
+            "can_place_bids": self.phase == "BIDDING" and now.hour < 11,
+            "seconds_to_cutoff": max(seconds_to_cutoff, 0),
+            "data_initialized": (self._d1_day_ahead_cache is not None and 
+                                (self._d0_day_ahead_cache is not None if self.phase == "TRADING" else True)),
+            "day_ahead_points": len(self._day_ahead_cache) if self._day_ahead_cache else 0,
+            "real_time_points": len(self._real_time_cache) if self._real_time_cache else 0,
+            "simulated_time": now.isoformat(),
+            "current_simulation_time": f"{now.hour:02d}:{now.minute:02d}:{now.second:02d}",
+            "pending_bids": sum(1 for b in _bids.values() if b["status"] == "PENDING"),
+            "executed_bids": sum(1 for b in _bids.values() if b["status"] == "EXECUTED"),
+            "rejected_bids": sum(1 for b in _bids.values() if b["status"] == "REJECTED"),
+            "trades_count": len(_trades),
+        }
+
+    def advance_to_trading_day(self) -> Dict:
+        """Advance phase to TRADING (D0) and perform batch DAM clearing."""
+        # Switch phase to TRADING (D0 = September 3, 2024)
+        self.phase = "TRADING"
+        
+        # Find the latest hour from executed bids for better UX
+        latest_bid_hour = 10  # Default fallback
+        for bid in _bids.values():
+            if bid["status"] == "EXECUTED":
+                latest_bid_hour = max(latest_bid_hour, bid["hour"])
+        
+        # Set simulated time to the latest executed bid hour (or 10:00 if none)
+        self._sim_now = datetime(2024, 9, 3, latest_bid_hour, 0, 0, 0, tzinfo=timezone.utc)
+        self._sim_anchor_sim = self._sim_now
+        self._sim_anchor_utc = datetime.now(timezone.utc)
+        print(f"DEBUG: Advanced to D0, set time to {self._sim_now} (latest bid hour: {latest_bid_hour})")
+        # D0 data should already be pre-loaded during initialization
+        if self._d0_day_ahead_cache and self._d0_real_time_cache:
+            print(f"DEBUG: Using pre-loaded D0 data: {len(self._d0_day_ahead_cache)} DA, {len(self._d0_real_time_cache)} RT points")
+        else:
+            print(f"DEBUG: WARNING - No D0 data available! Charts will show incorrect data.")
+        # Clear all PENDING bids (this is when DAM clearing happens)
+        cleared = 0
+        rejected = 0
+        print(f"DEBUG: Starting DAM clearing for {len([b for b in _bids.values() if b['status'] == 'PENDING'])} pending bids")
+        
+        for bid_id, bid in list(_bids.items()):
+            if bid["status"] == "PENDING":
+                print(f"DEBUG: Clearing bid {bid_id}: {bid['side']} {bid['quantity']} MWh @ ${bid['price']} for hour {bid['hour']}")
+                result = self.execute_bid(bid_id, ignore_time=True)
+                if result.get("status") == "executed":
+                    _bids[bid_id]["status"] = "EXECUTED"
+                    cleared += 1
+                    print(f"DEBUG: ✓ EXECUTED - Clearing price: ${result.get('executed_price')}")
+                elif result.get("status") == "rejected":
+                    _bids[bid_id]["status"] = "REJECTED"
+                    rejected += 1
+                    print(f"DEBUG: ✗ REJECTED - Bid: ${bid['price']}, Clearing: ${result.get('clearing_price')}")
+        
+        print(f"DEBUG: DAM clearing complete - {cleared} executed, {rejected} rejected")
+        return {
+            "status": "advanced",
+            "phase": self.phase,
+            "cleared": cleared,
+            "rejected": rejected,
+            "trades_count": len(_trades),
+        }
+
+    def back_to_bidding_day(self) -> Dict:
+        """Go back to BIDDING phase (D-1) to place more orders."""
+        # Switch phase back to BIDDING (D-1 = September 2, 2024)
+        self.phase = "BIDDING"
+        # Set simulated time to 10:00 on September 2, 2024 (D-1) by default
+        self._sim_now = datetime(2024, 9, 2, 10, 0, 0, 0, tzinfo=timezone.utc)
+        self._sim_anchor_sim = self._sim_now
+        self._sim_anchor_utc = datetime.now(timezone.utc)
+        # D-1 data should already be cached from initialization
+        print(f"DEBUG: Back to D-1 - using cached D-1 data")
+        if self._d1_day_ahead_cache and self._d1_real_time_cache:
+            print(f"DEBUG: D-1 data available: {len(self._d1_day_ahead_cache)} DA points, {len(self._d1_real_time_cache)} RT points")
+        else:
+            print(f"DEBUG: WARNING - No D-1 data cached! May need to re-initialize.")
+        
+        return {
+            "status": "back_to_bidding",
+            "phase": self.phase,
+            "message": "Returned to bidding phase (D-1)"
         }
 
 

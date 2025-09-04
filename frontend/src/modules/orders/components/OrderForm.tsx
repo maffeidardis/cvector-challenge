@@ -12,13 +12,15 @@ interface OrderFormProps {
   onClose: () => void
   onSubmit: (orders: OrderDraft[]) => Promise<boolean>
   isLoading?: boolean
+  canPlaceBids?: boolean
 }
 
 export const OrderForm: React.FC<OrderFormProps> = ({
   visible,
   onClose,
   onSubmit,
-  isLoading = false
+  isLoading = false,
+  canPlaceBids = true
 }) => {
   const [orderRows, setOrderRows] = useState<OrderDraft[]>([
     { id: 'row-1', hour: null, side: 'BUY', price: null, quantity: null }
@@ -90,7 +92,8 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       confirmLoading={isLoading}
       okButtonProps={{ 
         className: 'bg-[#F55330] hover:bg-[#E04420] border-[#F55330] w-full sm:w-auto',
-        size: 'large'
+        size: 'large',
+        disabled: !canPlaceBids
       }}
       cancelButtonProps={{
         size: 'large',
@@ -100,6 +103,11 @@ export const OrderForm: React.FC<OrderFormProps> = ({
       style={{ borderRadius: "16px" }}
     >
       <div className="space-y-3 sm:space-y-4 max-h-[70vh] overflow-y-auto">
+        {!canPlaceBids && (
+          <div className="bg-yellow-50 border border-yellow-200 p-3 rounded">
+            <span className="text-sm text-[#66002D]">Bidding closed (after 11:00 UTC). Advance to D0 to view results.</span>
+          </div>
+        )}
         <div>
           <span className="text-lg font-bold text-[#66002D]">Place Day-Ahead Orders</span>
         </div>

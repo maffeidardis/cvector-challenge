@@ -146,17 +146,8 @@ async def get_user_trades(
 @router.get("/simulation/status")
 async def get_simulation_status() -> dict:
     """Get the current simulation status and reference date."""
-    reference_date = trading_simulation.get_reference_date()
-    
-    return {
-        "simulation_mode": True,
-        "reference_date": reference_date.strftime("%Y-%m-%d"),
-        "display_date": "Today (Simulated)",
-        "description": f"Simulating energy trading using data from {reference_date.strftime('%B %d, %Y')}",
-        "data_initialized": trading_simulation._day_ahead_cache is not None,
-        "day_ahead_points": len(trading_simulation._day_ahead_cache) if trading_simulation._day_ahead_cache else 0,
-        "real_time_points": len(trading_simulation._real_time_cache) if trading_simulation._real_time_cache else 0
-    }
+    status = trading_simulation.get_simulation_status()
+    return status
 
 
 @router.get("/timeseries")
@@ -164,3 +155,29 @@ async def get_timeseries() -> dict:
     """Get D-1 day-ahead (hourly) and real-time (5-min) timeseries for charts."""
     series = trading_simulation.get_timeseries()
     return series
+
+
+@router.post("/simulation/advance")
+async def advance_simulation() -> dict:
+    """Advance to trading day (D0) and perform batch clearing."""
+    result = trading_simulation.advance_to_trading_day()
+    return result
+
+
+@router.post("/simulation/time")
+async def set_simulation_time(
+    hour: int = Query(..., ge=0, le=23, description="Simulated UTC hour"),
+    minute: int = Query(0, ge=0, le=59, description="Simulated UTC minute"),
+    phase: str = Query(None, regex="^(BIDDING|TRADING)$", description="Optional: Set phase (BIDDING=D-1, TRADING=D0)")
+) -> dict:
+    """Set simulated current UTC time and optionally change phase."""
+    if phase:
+        if phase == "BIDDING":
+            result = trading_simulation.back_to_bidding_day()
+        elif phase == "TRADING":
+            result = trading_simulation.advance_to_trading_day()
+        else:
+            result = trading_simulation.set_simulated_time(hour=hour, minute=minute)
+    else:
+        result = trading_simulation.set_simulated_time(hour=hour, minute=minute)
+    return result

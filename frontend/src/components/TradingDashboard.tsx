@@ -27,8 +27,8 @@ const TradingDashboard: React.FC = () => {
   // Local UI state
   const [showOrderModal, setShowOrderModal] = useState(false)
   
-  // Shared hooks
-  const currentUtcTime = useUtcTime()
+  // Shared hooks - start with backend simulated time if available
+  const [simTime, setSimTime] = useState<string>('')
   
   // Domain hooks
   const {
@@ -37,7 +37,16 @@ const TradingDashboard: React.FC = () => {
     isLoading: marketLoading,
     error: marketError,
     initializeSimulation,
-    refreshMarketData
+    refreshMarketData,
+    // Simulation status & controls
+    phase,
+    canPlaceBids,
+    secondsToCutoff,
+    biddingDate,
+    deliveryDate,
+    advanceToD0,
+    backToD1,
+    setSimulatedTime
   } = useMarketData()
   
   const {
@@ -61,12 +70,16 @@ const TradingDashboard: React.FC = () => {
 
   // Event handlers
   const handleInitialize = useCallback(async (): Promise<void> => {
-    const success = await initializeSimulation()
-    if (success) {
+    const result = await initializeSimulation()
+    if (result.success) {
       await Promise.all([
         fetchOrders(),
         fetchPnLData()
       ])
+      // Update simulation time if provided
+      if (result.simulatedTime) {
+        setSimTime(result.simulatedTime)
+      }
     }
   }, [initializeSimulation, fetchOrders, fetchPnLData])
 
@@ -109,12 +122,49 @@ const TradingDashboard: React.FC = () => {
     ])
   }, [refreshMarketData, fetchOrders, fetchPnLData])
 
+  const refreshSimTimeFromStatus = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch('/api/market-data/simulation/status')
+      if (res.ok) {
+        const json = await res.json()
+        if (json?.simulated_time) setSimTime(json.simulated_time)
+      }
+    } catch { /* noop */ }
+  }, [])
+
+  // Wrapper functions to update simulation time
+  const handleAdvanceToD0 = useCallback(async (): Promise<void> => {
+    const newSimTime = await advanceToD0()
+    if (newSimTime) {
+      setSimTime(newSimTime)
+    }
+    // Refresh other data
+    await Promise.all([
+      fetchOrders(),
+      fetchPnLData()
+    ])
+  }, [advanceToD0, fetchOrders, fetchPnLData])
+
+  const handleBackToD1 = useCallback(async (): Promise<void> => {
+    const newSimTime = await backToD1()
+    if (newSimTime) {
+      setSimTime(newSimTime)
+    }
+    // Refresh other data
+    await Promise.all([
+      fetchOrders(),
+      fetchPnLData()
+    ])
+  }, [backToD1, fetchOrders, fetchPnLData])
+
   // Auto-initialize simulation on component mount (only once)
   useEffect(() => {
     const initializeOnMount = async () => {
       if (!isInitialized && !isLoading) {
         await handleInitialize()
       }
+      // Pull status to get simulated time
+      await refreshSimTimeFromStatus()
     }
     
     initializeOnMount()
@@ -130,6 +180,7 @@ const TradingDashboard: React.FC = () => {
 
   // Calculate spread for display
   const spread = marketSummary.realTimePrice - marketSummary.dayAheadPrice
+  const currentUtcTime = useUtcTime(simTime)
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -140,6 +191,16 @@ const TradingDashboard: React.FC = () => {
         currentUtcTime={currentUtcTime}
         onInitialize={handleInitialize}
         onPlaceOrders={() => setShowOrderModal(true)}
+        phase={phase}
+        canPlaceBids={canPlaceBids}
+        secondsToCutoff={secondsToCutoff}
+        pendingOrders={orderSummary.pendingOrders}
+        executedOrders={orderSummary.executedOrders}
+        biddingDate={biddingDate}
+        deliveryDate={deliveryDate}
+        onAdvance={handleAdvanceToD0}
+        onBackToD1={handleBackToD1}
+        onSetSimTime={(hour: number) => setSimulatedTime(hour)}
       />
 
       {!isInitialized ? (
@@ -219,6 +280,7 @@ const TradingDashboard: React.FC = () => {
               <QuickTrade
                 onSubmit={handleQuickTrade}
                 isLoading={ordersLoading}
+                canPlaceBids={canPlaceBids}
               />
             </div>
           </div>
@@ -254,6 +316,7 @@ const TradingDashboard: React.FC = () => {
         onClose={() => setShowOrderModal(false)}
         onSubmit={handleSubmitOrders}
         isLoading={ordersLoading}
+        canPlaceBids={canPlaceBids}
       />
     </div>
   )

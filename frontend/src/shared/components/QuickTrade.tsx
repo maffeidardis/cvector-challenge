@@ -15,12 +15,14 @@ interface QuickTradeProps {
   }) => Promise<boolean>
   isLoading?: boolean
   className?: string
+  canPlaceBids?: boolean
 }
 
 export const QuickTrade: React.FC<QuickTradeProps> = ({ 
   onSubmit, 
   isLoading = false,
-  className = ""
+  className = "",
+  canPlaceBids = true
 }) => {
   const [side, setSide] = useState<'BUY' | 'SELL'>('BUY')
   const [hour, setHour] = useState<number | null>(null)
@@ -82,6 +84,11 @@ export const QuickTrade: React.FC<QuickTradeProps> = ({
       size='small'
     >
       <div className="space-y-3">
+        {!canPlaceBids && (
+          <div className="bg-yellow-50 border border-yellow-200 p-2 rounded text-xs text-[#66002D]">
+            Bidding closed (after 11:00 UTC). Debug: canPlaceBids={String(canPlaceBids)}
+          </div>
+        )}
         {/* Buy/Sell Toggle */}
         <div>
           <label className="block text-xs font-bold text-[#66002D] mb-1">
@@ -212,7 +219,7 @@ export const QuickTrade: React.FC<QuickTradeProps> = ({
           shape='round'
           onClick={handleSubmit}
           loading={isSubmitting || isLoading}
-          disabled={!isFormValid}
+          disabled={!isFormValid || !canPlaceBids}
           className="w-full bg-[#F55330] hover:bg-[#E04420] border-[#F55330]"
         >
           {isSubmitting ? 'Placing Order...' : `Place ${side} Order`}

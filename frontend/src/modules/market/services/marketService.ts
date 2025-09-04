@@ -26,6 +26,34 @@ export class MarketService {
   }
 
   /**
+   * Get full simulation status (phase, cutoff, dates)
+   */
+  static async getSimulationStatus(): Promise<{
+    phase: 'BIDDING' | 'TRADING'
+    can_place_bids: boolean
+    seconds_to_cutoff: number
+    bidding_date?: string
+    delivery_date?: string
+    data_initialized: boolean
+    simulated_time?: string
+  }> {
+    const response = await fetch(`${this.BASE_URL}/simulation/status`)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    const data = await response.json()
+    return {
+      phase: (data?.phase as 'BIDDING' | 'TRADING') ?? 'BIDDING',
+      can_place_bids: Boolean(data?.can_place_bids),
+      seconds_to_cutoff: Number(data?.seconds_to_cutoff ?? 0),
+      bidding_date: data?.bidding_date,
+      delivery_date: data?.delivery_date,
+      data_initialized: Boolean(data?.data_initialized),
+      simulated_time: data?.simulated_time,
+    }
+  }
+
+  /**
    * Initialize market simulation
    */
   static async initializeSimulation(): Promise<void> {
@@ -37,6 +65,47 @@ export class MarketService {
     } catch (error) {
       console.error('Failed to initialize simulation:', error)
       throw error
+    }
+  }
+
+  /**
+   * Advance to trading day and batch clear orders
+   */
+  static async advanceSimulation(): Promise<void> {
+    console.log('Calling advance simulation API...')
+    const response = await fetch(`${this.BASE_URL}/simulation/advance`, { method: 'POST' })
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Advance simulation failed:', response.status, response.statusText, errorText)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    const result = await response.json()
+    console.log('Advance simulation result:', result)
+  }
+
+  /**
+   * Go back to bidding day (D-1) to place more orders
+   */
+  static async backToBiddingDay(): Promise<void> {
+    console.log('Calling back to D-1 API...')
+    const response = await fetch(`${this.BASE_URL}/simulation/time?hour=10&minute=0&phase=BIDDING`, { method: 'POST' })
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Back to D-1 failed:', response.status, response.statusText, errorText)
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    const result = await response.json()
+    console.log('Back to D-1 result:', result)
+  }
+
+  /**
+   * Set simulated UTC time (hour, minute)
+   */
+  static async setSimulatedTime(hour: number, minute: number = 0): Promise<void> {
+    const params = new URLSearchParams({ hour: String(hour), minute: String(minute) })
+    const response = await fetch(`${this.BASE_URL}/simulation/time?${params.toString()}`, { method: 'POST' })
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
     }
   }
 

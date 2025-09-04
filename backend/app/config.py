@@ -2,7 +2,7 @@
 
 import os
 from dotenv import load_dotenv
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional, List
 
 # Load environment variables from .env file
@@ -10,6 +10,7 @@ load_dotenv()
 
 class Settings(BaseSettings):
     """Application settings."""
+    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
     
     # Application
     app_name: str = os.getenv("APP_NAME", "Virtual Energy Trading API")
@@ -25,9 +26,6 @@ class Settings(BaseSettings):
     
     # CORS - Use string type to avoid Pydantic JSON parsing
     cors_origins: str = "http://localhost:5173,http://localhost:3000,https://cvector.torportech.ai"
-    
-    class Config:
-        env_file = ".env"
     
     def get_cors_origins(self) -> List[str]:
         """Get CORS origins as a list."""
