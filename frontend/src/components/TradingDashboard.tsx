@@ -244,9 +244,9 @@ const TradingDashboard: React.FC = () => {
           </div>
 
           {/* Main Content Grid: Chart + Quick Trade */}
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 sm:gap-6">
-            {/* Chart Section - Takes 3/4 width */}
-            <div className="lg:col-span-3">
+          <div className={`grid grid-cols-1 ${phase === 'BIDDING' ? 'lg:grid-cols-4' : 'lg:grid-cols-1'} gap-4 sm:gap-6`}>
+            {/* Chart Section - Takes 3/4 width on D-1, full width on D0 */}
+            <div className={phase === 'BIDDING' ? 'lg:col-span-3' : 'lg:col-span-1'}>
               {marketError ? (
                 <Card 
                   title={<span className="text-[#66002D] font-bold text-lg">Market Data</span>}
@@ -275,14 +275,16 @@ const TradingDashboard: React.FC = () => {
               )}
             </div>
             
-            {/* Quick Trade Section - Takes 1/4 width */}
-            <div className="lg:col-span-1">
-              <QuickTrade
-                onSubmit={handleQuickTrade}
-                isLoading={ordersLoading}
-                canPlaceBids={canPlaceBids}
-              />
-            </div>
+            {/* Quick Trade Section - Only show during D-1 bidding phase */}
+            {phase === 'BIDDING' && (
+              <div className="lg:col-span-1">
+                <QuickTrade
+                  onSubmit={handleQuickTrade}
+                  isLoading={ordersLoading}
+                  canPlaceBids={canPlaceBids}
+                />
+              </div>
+            )}
           </div>
 
           {/* Orders and Portfolio Row */}
