@@ -200,20 +200,6 @@ export const TradingHeader: React.FC<TradingHeaderProps> = ({
                   Cutoff 11:00 • {cutoffH.toString().padStart(2,'0')}:{cutoffM.toString().padStart(2,'0')}:{cutoffS.toString().padStart(2,'0')}
                 </span>
               )}
-              {/* Sim time selector (compact) */}
-              {onSetSimTime && (
-                <div className="flex items-center space-x-1">
-                  <select
-                    className="border border-slate-300 px-1 py-0.5 text-xs"
-                    onChange={(e) => onSetSimTime(Number(e.target.value))}
-                    defaultValue={new Date().getUTCHours()}
-                  >
-                    {Array.from({ length: 24 }).map((_, i) => (
-                      <option key={i} value={i}>{i.toString().padStart(2,'0')}:00</option>
-                    ))}
-                  </select>
-                </div>
-              )}
             </div>
           </div>
         </div>

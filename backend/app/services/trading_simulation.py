@@ -525,17 +525,23 @@ class TradingSimulationService:
         # Switch phase to TRADING (D0 = September 3, 2024)
         self.phase = "TRADING"
         
-        # Find the latest hour from executed bids for better UX
-        latest_bid_hour = 10  # Default fallback
-        for bid in _bids.values():
-            if bid["status"] == "EXECUTED":
-                latest_bid_hour = max(latest_bid_hour, bid["hour"])
+        # Find the latest hour from ALL bids (including PENDING ones about to be cleared) for better UX
+        bid_hours = []
+        print(f"DEBUG: Checking {len(_bids)} total bids for latest delivery hour")
         
-        # Set simulated time to the latest executed bid hour (or 10:00 if none)
+        for bid_id, bid in _bids.items():
+            print(f"DEBUG: Bid {bid_id}: hour={bid['hour']}, status={bid['status']}")
+            bid_hours.append(bid["hour"])
+        
+        # Use the maximum hour from all bids, or 10 as fallback if no bids
+        latest_bid_hour = max(bid_hours) if bid_hours else 10
+        print(f"DEBUG: Bid hours found: {bid_hours}, using latest: {latest_bid_hour}")
+        
+        # Set simulated time to the latest bid hour (or 10:00 if none)
         self._sim_now = datetime(2024, 9, 3, latest_bid_hour, 0, 0, 0, tzinfo=timezone.utc)
         self._sim_anchor_sim = self._sim_now
         self._sim_anchor_utc = datetime.now(timezone.utc)
-        print(f"DEBUG: Advanced to D0, set time to {self._sim_now} (latest bid hour: {latest_bid_hour})")
+        print(f"DEBUG: Advanced to D0, set time to {self._sim_now} (latest bid hour: {latest_bid_hour} from {len(_bids)} bids)")
         # D0 data should already be pre-loaded during initialization
         if self._d0_day_ahead_cache and self._d0_real_time_cache:
             print(f"DEBUG: Using pre-loaded D0 data: {len(self._d0_day_ahead_cache)} DA, {len(self._d0_real_time_cache)} RT points")
