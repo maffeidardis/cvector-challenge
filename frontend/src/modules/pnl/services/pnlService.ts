@@ -3,6 +3,7 @@
  */
 
 import type { Trade, PnLSummary } from '../types/pnl'
+import { UserSessionService } from '../../../shared/services/userSession'
 
 export class PnLService {
   private static readonly BASE_URL = '/api/market-data'
@@ -12,7 +13,8 @@ export class PnLService {
    */
   static async fetchTrades(): Promise<Trade[]> {
     try {
-      const response = await fetch(`${this.BASE_URL}/trades`)
+      const userId = UserSessionService.getUserId()
+      const response = await fetch(`${this.BASE_URL}/trades?user_id=${encodeURIComponent(userId)}`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
@@ -30,7 +32,8 @@ export class PnLService {
    */
   static async getTotalPnL(): Promise<number> {
     try {
-      const response = await fetch(`${this.BASE_URL}/trades`)
+      const userId = UserSessionService.getUserId()
+      const response = await fetch(`${this.BASE_URL}/trades?user_id=${encodeURIComponent(userId)}`)
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }

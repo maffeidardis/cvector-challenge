@@ -1,12 +1,10 @@
 """Trading simulation service using D-1 (yesterday) data strategy."""
 
 from typing import List, Dict, Optional
-from datetime import datetime, timedelta, time, timezone
-from decimal import Decimal
+from datetime import datetime, timezone
 import uuid
 
 from ..infrastructure.external.gridstatus_client import GridStatusService
-from ..domain.trading.value_objects import MarketType
 
 # In-memory storage for bids and trades (for demo purposes)
 _bids: Dict[str, Dict] = {}

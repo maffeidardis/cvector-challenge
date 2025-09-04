@@ -6,7 +6,6 @@ from fastapi import APIRouter, Query
 from ....infrastructure.external.gridstatus_client import GridStatusService
 from ....services.trading_simulation import trading_simulation
 from ..schemas import MarketDataSchema
-from ....domain.trading.value_objects import MarketType
 
 router = APIRouter()
 

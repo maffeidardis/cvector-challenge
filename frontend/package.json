@@ -12,10 +12,12 @@
   "dependencies": {
     "@arco-design/web-react": "^2.66.5",
     "@tailwindcss/vite": "^4.1.12",
+    "@types/uuid": "^10.0.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
     "react-hot-toast": "^2.6.0",
-    "recharts": "^2.8.0"
+    "recharts": "^2.8.0",
+    "uuid": "^11.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

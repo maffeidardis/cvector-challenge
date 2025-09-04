@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useCallback } from 'react'
-import { Button, Card } from '@arco-design/web-react'
+import { Card } from '@arco-design/web-react'
 import toast from 'react-hot-toast'
 
 // Shared components and hooks
@@ -38,7 +38,6 @@ const TradingDashboard: React.FC = () => {
     timeseries,
     isLoading: marketLoading,
     error: marketError,
-    initializeSimulation,
     refreshMarketData,
     // Simulation status & controls
     phase,
@@ -66,23 +65,9 @@ const TradingDashboard: React.FC = () => {
 
   // Derived state
   const isInitialized = marketSummary.isInitialized
-  const isLoading = marketLoading || ordersLoading || pnlLoading
   const orderSummary = getOrderSummary()
 
-  // Event handlers
-  const handleInitialize = useCallback(async (): Promise<void> => {
-    const result = await initializeSimulation()
-    if (result.success) {
-      await Promise.all([
-        fetchOrders(),
-        fetchPnLData()
-      ])
-      // Update simulation time if provided
-      if (result.simulatedTime) {
-        setSimTime(result.simulatedTime)
-      }
-    }
-  }, [initializeSimulation, fetchOrders, fetchPnLData])
+  // Event handlers - handleInitialize removed since auto-initialization is now handled by useMarketData hook
 
   const handleSubmitOrders = async (orderDrafts: Array<{
     id: string
@@ -229,20 +214,15 @@ const TradingDashboard: React.FC = () => {
     ])
   }, [backToD1, fetchOrders, fetchPnLData])
 
-  // Auto-initialize simulation on component mount (only once)
+  // Initialize simulation time on mount (market data initialization is handled by useMarketData hook)
   useEffect(() => {
     const initializeOnMount = async () => {
-      if (!isInitialized && !isLoading) {
-        await handleInitialize()
-      }
-      // Pull status to get simulated time
+      // Pull status to get simulated time - only run once to avoid redundant calls
       await refreshSimTimeFromStatus()
-      
-      // Test notification removed - react-hot-toast is working perfectly! 🎉
     }
     
     initializeOnMount()
-  }, []) // Empty dependency array - run only once on mount
+  }, []) // Empty dependency array - run only once, useMarketData handles the rest
 
   // Auto-refresh every 30 seconds when initialized
   useEffect(() => {
@@ -309,9 +289,7 @@ const TradingDashboard: React.FC = () => {
             <div className="xl:col-span-1">
               <TradingControls
                 isInitialized={isInitialized}
-                isLoading={isLoading}
                 currentUtcTime={currentUtcTime}
-                onInitialize={handleInitialize}
                 onPlaceOrders={() => setShowOrderModal(true)}
                 phase={phase}
                 canPlaceBids={canPlaceBids}
@@ -337,16 +315,13 @@ const TradingDashboard: React.FC = () => {
                   className="shadow-sm"
                   style={{ borderRadius: "16px" }}
                 >
-                  <div className="text-center py-8 sm:py-16 px-4">
+                                      <div className="text-center py-8 sm:py-16 px-4">
                     <div className="text-red-600 font-medium mb-4 text-sm sm:text-base">
                       {marketError}
                     </div>
-                    <Button 
-                      onClick={handleInitialize}
-                      className="bg-[#F55330] hover:bg-[#E04420] border-[#F55330] text-white w-full sm:w-auto"
-                    >
-                      Retry Initialization
-                    </Button>
+                    <p className="text-sm text-slate-500">
+                      Please refresh the page to retry loading market data.
+                    </p>
                   </div>
                 </Card>
               ) : (

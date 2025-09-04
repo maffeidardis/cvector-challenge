@@ -2,28 +2,13 @@
  * Shared Trading Header Component
  */
 
-import React, { useState } from 'react'
-import { Button, Message } from '@arco-design/web-react'
+import React from 'react'
+import { Tag } from '@arco-design/web-react'
 import cvectorLogo from '../../assets/cvector-logo.png'
-import { MarketService } from '../../modules/market/services/marketService'
+import { UserSessionService } from '../services/userSession'
 
 export const TradingHeader: React.FC = () => {
-  const [isInitializing, setIsInitializing] = useState(false)
-
-  const handleInitialize = async () => {
-    setIsInitializing(true)
-    try {
-      await MarketService.initializeSimulation()
-      Message.success('Market simulation initialized successfully!')
-      // Trigger a page refresh to update all components with new data
-      window.location.reload()
-    } catch (error) {
-      console.error('Failed to initialize simulation:', error)
-      Message.error('Failed to initialize market simulation. Please try again.')
-    } finally {
-      setIsInitializing(false)
-    }
-  }
+  const userSession = UserSessionService.getSessionInfo()
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
@@ -53,17 +38,11 @@ export const TradingHeader: React.FC = () => {
             </div>
           </div>
 
-          {/* Right side: Initialize Button */}
+          {/* Right side: User Info */}
           <div className="flex items-center">
-            <Button
-              type="primary"
-              onClick={handleInitialize}
-              loading={isInitializing}
-              size="small"
-              className="bg-[#66002D] hover:bg-[#66002D]/90 border-[#66002D] text-xs sm:text-sm"
-            >
-              {isInitializing ? 'Initializing...' : 'Initialize Market'}
-            </Button>
+            <Tag color="blue" className="text-xs">
+              {userSession.userName}
+            </Tag>
           </div>
         </div>
       </div>
