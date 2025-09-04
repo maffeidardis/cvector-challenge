@@ -16,8 +16,8 @@ interface TradingControlsProps {
   secondsToCutoff?: number
   pendingOrders?: number
   executedOrders?: number
-  biddingDate?: string  // D-1 date (e.g., "2024-09-02")
-  deliveryDate?: string // D0 date (e.g., "2024-09-03")
+  biddingDate?: string  // D-1 date (e.g., "2025-09-02")
+  deliveryDate?: string // D0 date (e.g., "2025-09-03")
   onAdvance?: () => Promise<void>
   onBackToD1?: () => Promise<void>
   onReset?: () => Promise<void>

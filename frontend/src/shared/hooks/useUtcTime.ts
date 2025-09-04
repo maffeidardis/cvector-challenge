@@ -15,7 +15,7 @@ export function useUtcTime(initial?: string) {
     }
     
     // Parse the UTC time string properly
-    // Backend sends ISO format like "2024-09-02T10:00:00+00:00"
+    // Backend sends ISO format like "2025-09-02T10:00:00+00:00"
     const base = new Date(initial)
     secondsRef.current = 0
     
