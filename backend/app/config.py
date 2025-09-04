@@ -3,7 +3,6 @@
 import os
 from dotenv import load_dotenv
 from pydantic_settings import BaseSettings
-from pydantic import field_validator
 from typing import Optional, List
 
 # Load environment variables from .env file
