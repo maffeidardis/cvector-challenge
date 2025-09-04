@@ -18,16 +18,14 @@ class Settings(BaseSettings):
     debug: bool = os.getenv("DEBUG", "true").lower() == "true"
     
 
-    
     # External APIs
-    gridstatus_api_url: str = os.getenv("GRIDSTATUS_API_URL", "https://api.gridstatus.io")
     gridstatus_api_key: Optional[str] = os.getenv("GRIDSTATUS_API_KEY")
     
     # Market Data - PJM Focus
     primary_market: str = os.getenv("PRIMARY_MARKET", "PJM")  # Focus on PJM only
     
     # CORS - Use string type to avoid Pydantic JSON parsing
-    cors_origins: str = "http://localhost:5173,http://localhost:3000, https://cvector.torportech.ai"
+    cors_origins: str = "http://localhost:5173,http://localhost:3000,https://cvector.torportech.ai"
     
     class Config:
         env_file = ".env"
