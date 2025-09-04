@@ -595,6 +595,27 @@ class TradingSimulationService:
             "message": "Returned to bidding phase (D-1)"
         }
 
+    def reset_order_book(self) -> Dict:
+        """Clear all bids and trades from the order book."""
+        global _bids, _trades
+        
+        # Store counts for response
+        bid_count = len(_bids)
+        trade_count = len(_trades)
+        
+        # Clear all orders and trades
+        _bids.clear()
+        _trades.clear()
+        
+        print(f"DEBUG: Order book reset - Cleared {bid_count} bids and {trade_count} trades")
+        
+        return {
+            "status": "success",
+            "message": f"Order book cleared successfully",
+            "cleared_bids": bid_count,
+            "cleared_trades": trade_count
+        }
+
 
 # Global simulation service instance
 trading_simulation = TradingSimulationService()

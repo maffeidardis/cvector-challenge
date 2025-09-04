@@ -5,9 +5,11 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { Button, Card } from '@arco-design/web-react'
+import toast from 'react-hot-toast'
 
 // Shared components and hooks
 import { TradingHeader } from '../shared/components/TradingHeader'
+import { TradingControls } from '../shared/components/TradingControls'
 
 import { MetricCard } from '../shared/components/MetricCard'
 import { QuickTrade } from '../shared/components/QuickTrade'
@@ -90,8 +92,23 @@ const TradingDashboard: React.FC = () => {
     quantity: number | null
   }>): Promise<boolean> => {
     const success = await submitOrders(orderDrafts)
+    
     if (success) {
       await refreshData()
+      
+      // Show bulk submission notification
+      const validOrders = orderDrafts.filter(o => o.hour && o.price && o.quantity)
+      
+      if (validOrders.length > 1) {
+              toast.success(`${validOrders.length} bids submitted successfully. Check your order book for details.`, {
+        duration: 4000,
+      })
+      }
+    } else {
+      // Error notification for bulk submission
+      toast.error('Order submission failed. Please check your inputs and try again.', {
+        duration: 5000,
+      })
     }
     return success
   }
@@ -110,7 +127,63 @@ const TradingDashboard: React.FC = () => {
       quantity: order.quantity
     }
     
-    return await handleSubmitOrders([orderDraft])
+    const success = await handleSubmitOrders([orderDraft])
+    
+    console.log('DEBUG: QuickTrade submission result:', success)
+    
+    if (success) {
+      // Show detailed success notification
+      console.log('DEBUG: Showing success notification for QuickTrade')
+              try {
+                toast.success(`Bid submitted: ${order.side} ${order.quantity} MWh at $${order.price}/MWh for ${order.hour}:00 UTC on D0`, {
+        duration: 4000,
+      })
+          console.log('DEBUG: Success toast called')
+        } catch (error) {
+          console.error('DEBUG: Error showing success toast:', error)
+        }
+    } else {
+      // Show error notification
+      console.log('DEBUG: Showing error notification for QuickTrade')
+              try {
+          toast.error(`Bid submission failed. Could not submit ${order.side} order for ${order.hour}:00 UTC. Please try again.`, {
+            duration: 5000,
+          })
+          console.log('DEBUG: Error toast called')
+        } catch (error) {
+          console.error('DEBUG: Error showing error toast:', error)
+        }
+    }
+    
+    return success
+  }
+
+  const handleResetOrders = async (): Promise<void> => {
+    try {
+      const response = await fetch('/api/market-data/reset', { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      })
+      
+      if (!response.ok) {
+        throw new Error(`Failed to reset order book: ${response.status}`)
+      }
+      
+      const result = await response.json()
+      
+      // Refresh all data after reset
+      await refreshData()
+      
+      // Show success toast
+      toast.success(`Order book cleared: ${result.cleared_bids} bids and ${result.cleared_trades} trades removed`, {
+        duration: 4000,
+      })
+    } catch (error) {
+      console.error('Error resetting order book:', error)
+      toast.error('Failed to reset order book. Please try again.', {
+        duration: 5000,
+      })
+    }
   }
 
   const refreshData = useCallback(async (): Promise<void> => {
@@ -164,6 +237,8 @@ const TradingDashboard: React.FC = () => {
       }
       // Pull status to get simulated time
       await refreshSimTimeFromStatus()
+      
+      // Test notification removed - react-hot-toast is working perfectly! 🎉
     }
     
     initializeOnMount()
@@ -183,23 +258,8 @@ const TradingDashboard: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <TradingHeader
-        isInitialized={isInitialized}
-        isLoading={isLoading}
-        currentUtcTime={currentUtcTime}
-        onInitialize={handleInitialize}
-        onPlaceOrders={() => setShowOrderModal(true)}
-        phase={phase}
-        canPlaceBids={canPlaceBids}
-        secondsToCutoff={secondsToCutoff}
-        pendingOrders={orderSummary.pendingOrders}
-        executedOrders={orderSummary.executedOrders}
-        biddingDate={biddingDate}
-        deliveryDate={deliveryDate}
-        onAdvance={handleAdvanceToD0}
-        onBackToD1={handleBackToD1}
-      />
+      {/* Clean Header */}
+      <TradingHeader />
 
       {!isInitialized ? (
         <div className="flex items-center justify-center h-96">
@@ -211,8 +271,11 @@ const TradingDashboard: React.FC = () => {
         </div>
       ) : (
         <div className="px-4 sm:px-6 py-4 sm:py-6 space-y-4 sm:space-y-6">
-          {/* Top Metrics Row */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
+          {/* Top Row: Metrics + Trading Controls */}
+          <div className="grid grid-cols-1 xl:grid-cols-5 gap-4 sm:gap-6">
+            {/* Metrics - Takes 4 columns on xl screens */}
+            <div className="xl:col-span-4">
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 lg:gap-6">
             <MetricCard
               title="Day-Ahead Price"
               value={`$${marketSummary.dayAheadPrice.toFixed(2)}`}
@@ -239,6 +302,29 @@ const TradingDashboard: React.FC = () => {
               totalPnl={totalPnl}
               isLoading={pnlLoading}
             />
+              </div>
+            </div>
+            
+            {/* Trading Controls - Takes 1 column on xl screens, full width on smaller */}
+            <div className="xl:col-span-1">
+              <TradingControls
+                isInitialized={isInitialized}
+                isLoading={isLoading}
+                currentUtcTime={currentUtcTime}
+                onInitialize={handleInitialize}
+                onPlaceOrders={() => setShowOrderModal(true)}
+                phase={phase}
+                canPlaceBids={canPlaceBids}
+                secondsToCutoff={secondsToCutoff}
+                pendingOrders={orderSummary.pendingOrders}
+                executedOrders={orderSummary.executedOrders}
+                biddingDate={biddingDate}
+                deliveryDate={deliveryDate}
+                onAdvance={handleAdvanceToD0}
+                onBackToD1={handleBackToD1}
+                onReset={handleResetOrders}
+              />
+            </div>
           </div>
 
           {/* Main Content Grid: Chart + Quick Trade */}
